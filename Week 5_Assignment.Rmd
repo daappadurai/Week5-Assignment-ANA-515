@@ -1,0 +1,177 @@
+---
+title: "Week 5 ANA 515"
+author: "Daniel Appadurai"
+date: "2023-06-24"
+output: word_document
+ 
+---
+# Heavy Drinking Among Adults In the US Aged 18 and Above
+
+
+```{r dependencies, include=FALSE}
+#importing dependencies
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(rmarkdown)
+library(officer)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r importData, include=FALSE}
+#importing csv file and creating a dataframe named data. 
+data<-read.csv("U.S._Chronic_Disease_Indicators__CDI_.csv")
+```
+
+## Overview:
+The chronic disease indicators data set is a comprehensive data set collected on an annual basis since 2001 by the CDC's Division of Population Health across all 50 US states. The dataset has a total of `r ncol(data)` columns and  `r nrow(data)` rows  as of 2021 and contains 124 indicators for a total of `r length(unique(data$Topic))` chronic diseases.
+
+## Heavy Alcohol Consumption Among Adults Aged 18 And Above:
+
+One of the chronic disease data collected is on heavy alcohol consumption among adults across 50 US states. This data analysis is done on heavy alcohol consumption among different race/ethnic groups for the year 2021. The table below shows the mean, min and max age-adjusted prevalence for the various race/ethnic groups.
+
+
+```{r 2021Data, include=FALSE}
+# filtering data for the most recent year, 2021
+recent_data<-filter(data,YearEnd==2021)
+```
+
+
+```{r AlcoholTopic, include=FALSE}
+# Filtering only for chronic disease category, alcohol.
+alcohol<-filter(recent_data,Topic=="Alcohol")
+```
+
+```{r missing columns, include=FALSE}
+#inspecting null columns and compling a list of all columns. The result of null columns will be TRUE and non-null columns will be FALSE
+results<- list()
+for (col_name in colnames(alcohol)) {
+  analysis_results<- all(is.na(alcohol[[col_name]]))
+  results[[col_name]]<- analysis_results
+}
+```
+
+```{r missing column results, include=FALSE}
+# Making a dataframe from the column list and transforming the shape of the dataframe for better view
+df<-data.frame(results)
+df2<-t(df)
+df3<-as.data.frame(df2)
+```
+
+
+```{r cleaning df3, include=FALSE}
+#Naming the row index as column name
+library(dplyr)
+df3<-rownames_to_column(df3, var="Column_Name")
+```
+
+```{r, include=FALSE}
+# filtering out only non-null columns
+
+df4<-filter(df3, V1=="FALSE")
+
+```
+
+```{r column list to be deleted, include=FALSE}
+# creating a list of selected columns
+columns_list<-df4$Column_Name
+
+```
+
+```{r Alcohol column list deletion, include=FALSE}
+#making a new dataframe with the selected non-null columns
+alcohol_new<-subset(alcohol, select = columns_list)
+```
+
+```{r alcohol consumption, include=FALSE}
+# choosing only alcohol consumption related questions, total entries, 4130
+alcohol_consumption<-subset(alcohol_new, Question %in%  c("Heavy drinking among adults aged >= 18 years","Heavy drinking among women aged 18-44 years","Binge drinking prevalence among adults aged >= 18 years","Binge drinking intensity among adults aged >= 18 years who binge drink","Binge drinking frequency among adults aged >= 18 years who binge drink","Binge drinking prevalence among women aged 18-44 years"))
+```
+
+```{r dealing with missing values, include=FALSE}
+# checking for missing values in rows and found 1,393 missing values
+missing_rows<-alcohol_consumption[apply(is.na(alcohol_consumption), 1, any), ]
+nrow(missing_rows)
+```
+
+```{r removing missing rows, include=FALSE}
+# selecting rows without missing values, number of rows total, 2,737
+alcohol_consumption_new<-alcohol_consumption[complete.cases(alcohol_consumption), ]
+
+nrow(alcohol_consumption_new)
+
+```
+
+```{r removing unwanted columns cont, include=FALSE}
+# selecting only relevant rows
+alcohol_consumption_mod<-subset(alcohol_consumption_new, select=c("LocationDesc","Question","DataValueUnit","DataValueType","DataValueAlt","StratificationCategory1","Stratification1"))
+colnames(alcohol_consumption_mod)
+```
+
+
+```{r heavy drinking aged 18 and above, include=FALSE}
+# The final adult alcohol consumption dataset
+hdag_18<-alcohol_consumption_mod %>% filter(Question=="Heavy drinking among adults aged >= 18 years")
+```
+
+```{r hdag_18Race, include=FALSE}
+# filtering alcohol consumption among different Race/Ethnicity
+hdag_18Race<-hdag_18 %>% filter(StratificationCategory1=="Race/Ethnicity")
+```
+
+```{r Rename column, include=FALSE}
+# Rename Stratification 1 as Race/Ethnicity
+
+names(hdag_18Race)[names(hdag_18Race) == 'Stratification1'] <- 'Race_Ethnicity'
+
+```
+
+```{r hdag_18RaceSummary, include=FALSE}
+# Segregating cure prevalence from age-adjusted prevalence
+filt3<-hdag_18Race %>% filter(DataValueType=="Crude Prevalence")
+filt4<-hdag_18Race %>% filter(DataValueType == "Age-adjusted Prevalence")
+```
+
+
+```{r summary stats age adjusted Prevelance Race, echo=FALSE}
+# assigning summary statistics to a new variable summrz_g4, for age-adjusted prevalence of heavy drinking among different race/ethinicity aged 18 and above
+summrz_g4<-filt4 %>% group_by(Race_Ethnicity) %>% summarize(Mean_Prevalence=mean(DataValueAlt), Min_Prevelence=min(DataValueAlt),Max_Prevelance=max(DataValueAlt), .groups= "keep")
+kable(summrz_g4)
+```
+
+
+```{r boxplot for age adjusted Prevelance Race, echo=FALSE}
+# Box plot for age-adjusted prevalence of heavy drinking among different race/ethnicity aged 18 and above
+
+plt_b<-ggplot(filt4, aes(Race_Ethnicity,DataValueAlt))+geom_boxplot() +labs(title = "Age-Adjusted Prevalence of Heavy Alcohol Consumption by Race/Ethnicity", x="Race/Ethnicity", y="Age-Adjusted Prevalence of Heavy Alcohol Consumption") 
+plt_b
+```
+
+A box plot showing the age-adjusted prevalence of heavy alcohol consumption among different ethnic groups. The multiracial, non-Hispanic group showed the highest prevalence (8.48 %). Based on the median position in the box plot, the multiracial, non-hispanic group shows skewness. A log transformation may be required to normalize the data. Age-adjusted prevalence represents the percentage state adult population aged 18 and above. 
+
+
+Disclaimer: The above conclusions are highly contingent on the available data and is subject to change anytime with new available data. This is solely meant as academic exercise only and in no way represents the personal view of the author nor it is intended to be discriminatory or maliciously targeted towards any particular race/ethnicity, group or gender.
+
+```{r filt6, include=FALSE}
+filt6<-subset(hdag_18, Stratification1=="Overall")
+
+```
+
+```{r filt7, include=FALSE}
+filt7<-subset(filt6, DataValueType=="Age-adjusted Prevalence")
+
+```
+
+```{r histogramfilt7, echo=FALSE}
+plt_h<-ggplot(filt7,aes(DataValueAlt)) +geom_histogram(color="black", bins=10) +labs(title = "Frequency of Age-Adjusted Prevalence", x="Age-Adjusted Prevalence", y="Number of US States")
+
+plt_h
+```
+
+
+The histogram shows the frequency distribution of states based on age-adjusted prevalence of heavy alcohol consumption. The distribution if fairly normally distributed with most states centering around the mean of (`r mean(filt7$DataValueAlt)` %).
+
